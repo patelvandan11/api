@@ -23,9 +23,9 @@ def web_search(query: str, num_results: int = 10):
             "User-Agent": "Mozilla/5.0"
         }
         
-        data = {"q": query}
         
-        response = requests.post(url, headers=headers, data=data, timeout=10)
+        params = {"q": query}
+        response = requests.get(url, headers=headers, params=params, timeout=10)
         
         # ✅ Check status
         if response.status_code != 200:
