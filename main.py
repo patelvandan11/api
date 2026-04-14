@@ -16,36 +16,52 @@ class SearchResponse(BaseModel):
 
 
 def web_search(query: str, num_results: int = 10):
-    url = "https://html.duckduckgo.com/html/"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    
-    data = {"q": query}
-    
-    response = requests.post(url, headers=headers, data=data)
-    soup = BeautifulSoup(response.text, "html.parser")
-    
-    results = []
-    
-    for result in soup.find_all("div", class_="result")[:num_results]:
-        title_tag = result.find("a", class_="result__a")
-        snippet_tag = result.find("a", class_="result__snippet")
+    try:
+        url = "https://html.duckduckgo.com/html/"
         
-        if title_tag:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        
+        data = {"q": query}
+        
+        response = requests.post(url, headers=headers, data=data, timeout=10)
+        
+        # ✅ Check status
+        if response.status_code != 200:
+            return [{"error": "Failed to fetch results"}]
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        results = []
+        
+        for result in soup.find_all("div", class_="result")[:num_results]:
+            title_tag = result.find("a", class_="result__a")
+            snippet_tag = result.find("a", class_="result__snippet")
+            
+            if not title_tag:
+                continue
+            
+            title = title_tag.get_text(strip=True)
+            link = title_tag.get("href", "")
+            snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+            
             results.append({
-                "title": title_tag.get_text(),
-                "link": title_tag.get("href"),
-                "snippet": snippet_tag.get_text() if snippet_tag else ""
+                "title": title,
+                "link": link,
+                "snippet": snippet
             })
-    
-    return results
+        
+        return results if results else [{"message": "No results found"}]
+
+    except Exception as e:
+        return [{"error": str(e)}]
 
 
-@app.get("/search", response_model=list[SearchResponse])
-def search(
-    query: str = Query(..., description="Search query"),
-    limit: int = Query(10, description="Number of results")
-):
-    return web_search(query, limit)
+@app.get("/search")
+def search(query: str, limit: int = 10):
+    try:
+        return web_search(query, limit)
+    except Exception as e:
+        return {"error": str(e)}
+     
